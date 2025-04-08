@@ -1,4 +1,3 @@
-# models/base_models/lstm.py
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
