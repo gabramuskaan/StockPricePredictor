@@ -58,26 +58,48 @@ def home_page():
 
     # Show recent market overview
     st.subheader("Recent Market Overview")
-    tickers = get_available_tickers()[:5]  # Get top 5 tickers
-    end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-    data = load_stock_data(tickers, start_date, end_date)
+    try:
+        tickers = get_available_tickers()[:5]  # Get top 5 tickers
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-    # Display recent performance
-    for ticker, df in data.items():
-        if not df.empty:
-            # Calculate change as a scalar value, not a Series
-            first_price = df['Close'].iloc[0]
-            last_price = df['Close'].iloc[-1]
-            change = ((last_price - first_price) / first_price) * 100
+        st.write(f"Loading data for tickers: {tickers}")
+        data = load_stock_data(tickers, start_date, end_date)
 
-            # Now change is a scalar value, so this comparison is valid
-            color = "green" if change >= 0 else "red"
+        # Display recent performance
+        for ticker, df in data.items():
+            st.write(f"Processing ticker: {ticker}")
 
-            st.markdown(f"**{ticker}**: {last_price:.2f} INR "
-                      f"<span style='color:{color}'>{change:.2f}%</span>", unsafe_allow_html=True)
+            if not df.empty:
+                st.write(f"DataFrame for {ticker} has {len(df)} rows")
 
+                # Safe way to calculate change
+                try:
+                    first_price = float(df['Close'].iloc[0])
+                    last_price = float(df['Close'].iloc[-1])
+                    change = ((last_price - first_price) / first_price) * 100
+
+                    # Now change is definitely a scalar value
+                    st.write(f"First price: {first_price}, Last price: {last_price}, Change: {change}")
+
+                    if change >= 0:
+                        color = "green"
+                    else:
+                        color = "red"
+
+                    st.markdown(f"**{ticker}**: {last_price:.2f} INR "
+                              f"<span style='color:{color}'>{change:.2f}%</span>", unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Error calculating change for {ticker}: {str(e)}")
+                    st.write(f"DataFrame head: {df.head().to_dict()}")
+            else:
+                st.write(f"No data available for {ticker}")
+    except Exception as e:
+        st.error(f"Error in home_page: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        
 def company_analysis_page():
     st.title("Company Analysis")
 
