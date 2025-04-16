@@ -8,7 +8,7 @@ import sys
 import os
 
 # Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 # Import custom modules
 from src.data.data_loader import load_stock_data, get_available_tickers
