@@ -67,9 +67,15 @@ def home_page():
     # Display recent performance
     for ticker, df in data.items():
         if not df.empty:
-            change = ((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100
+            # Calculate change as a scalar value, not a Series
+            first_price = df['Close'].iloc[0]
+            last_price = df['Close'].iloc[-1]
+            change = ((last_price - first_price) / first_price) * 100
+
+            # Now change is a scalar value, so this comparison is valid
             color = "green" if change >= 0 else "red"
-            st.markdown(f"**{ticker}**: {df['Close'].iloc[-1]:.2f} INR "
+
+            st.markdown(f"**{ticker}**: {last_price:.2f} INR "
                       f"<span style='color:{color}'>{change:.2f}%</span>", unsafe_allow_html=True)
 
 def company_analysis_page():
