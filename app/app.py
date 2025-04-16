@@ -40,6 +40,31 @@ def main():
     elif page == "Comparison":
         comparison_page()
 
+def evaluate_predictions(y_true, y_pred):
+    """
+    Evaluate predictions using multiple metrics
+    """
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+    import numpy as np
+    
+    mse = mean_squared_error(y_true, y_pred)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+
+    # Calculate MAPE (Mean Absolute Percentage Error)
+    # Avoid division by zero
+    mask = y_true != 0
+    mape = np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100
+
+    return {
+        'MSE': mse,
+        'RMSE': rmse,
+        'MAE': mae,
+        'R2': r2,
+        'MAPE': mape
+    }
+
 def home_page():
     st.title("Stock Market Predictor - UPDATED VERSION")  # Changed title to be obviously different
     st.write("""
@@ -187,6 +212,51 @@ def prediction_page():
     # Prediction days
     prediction_days = st.slider("Number of Days to Predict", 7, 90, 30)
 
+    # Model selection
+    st.subheader("Model Selection")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        models_to_use = st.multiselect(
+            "Select Models to Include",
+            ["LSTM", "Random Forest", "SVR", "KNN", "GRU"],
+            default=["LSTM", "Random Forest", "SVR", "GRU"]
+        )
+    
+    with col2:
+        top_k = st.slider("Number of Top Models to Use in Hybrid", 1, 5, 2, 
+                         help="The hybrid model will select this many top-performing models")
+    
+    # Advanced options
+    with st.expander("Advanced Options"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selection_metric = st.selectbox(
+                "Model Selection Metric",
+                ["rmse", "mae", "r2"],
+                help="Metric used to select the best models"
+            )
+            
+            ensemble_method = st.selectbox(
+                "Ensemble Method",
+                ["weighted", "simple"],
+                help="Method to combine model predictions"
+            )
+        
+        with col2:
+            validation_split = st.slider(
+                "Validation Split",
+                0.1, 0.3, 0.2,
+                help="Fraction of training data to use for model selection"
+            )
+            
+            adaptive_weights = st.checkbox(
+                "Adaptive Weights",
+                True,
+                help="Dynamically adjust model weights based on recent performance"
+            )
+
     # Load data
     data = load_stock_data([ticker], start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
 
@@ -194,62 +264,213 @@ def prediction_page():
         df = data[ticker]
 
         # Preprocess data
+        from models.data_preprocessing import preprocess_data, train_test_split
         processed_df = preprocess_data(df)
         processed_df = processed_df.dropna()
 
         if st.button("Generate Prediction"):
-            with st.spinner("Training model and generating predictions..."):
-                # Prepare data for model
-                X_train, X_test, y_train, y_test, scaler = train_test_split(processed_df, train_size=0.8)
+            with st.spinner("Training models and generating predictions..."):
+                try:
+                    # Prepare data for model
+                    X_train, X_test, y_train, y_test, scaler = train_test_split(processed_df, train_size=0.8)
 
-                # Train LSTM model
-                model = LSTMModel(epochs=50)
-                model.fit(X_train, y_train)
+                    # Initialize models based on user selection
+                    models = {}
 
-                # Make predictions
-                test_predictions = model.predict(X_test)
-                test_predictions = scaler.inverse_transform(test_predictions.reshape(-1, 1))
+                    if "LSTM" in models_to_use:
+                        from models.base_models.lstm import LSTMModel
+                        models["LSTM"] = LSTMModel(epochs=50)
 
-                # Generate future predictions
-                last_sequence = X_test[-1].reshape(1, X_test.shape[1], 1)
-                future_predictions = []
+                    if "Random Forest" in models_to_use:
+                        from models.base_models.random_forest import RandomForestModel
+                        models["Random Forest"] = RandomForestModel(n_estimators=100)
 
-                for _ in range(prediction_days):
-                    next_pred = model.predict(last_sequence)
-                    future_predictions.append(next_pred[0])
+                    if "SVR" in models_to_use:
+                        from models.base_models.svr import SVRModel
+                        models["SVR"] = SVRModel()
 
-                    # Update sequence for next prediction
-                    last_sequence = np.append(last_sequence[:, 1:, :], [[next_pred]], axis=1)
+                    if "KNN" in models_to_use:
+                        from models.base_models.knn import KNNModel
+                        models["KNN"] = KNNModel(n_neighbors=5)
 
-                future_predictions = scaler.inverse_transform(np.array(future_predictions).reshape(-1, 1))
+                    if "GRU" in models_to_use:
+                        from models.base_models.gru import GRUModel
+                        models["GRU"] = GRUModel(epochs=50)
 
-                # Create future dates
-                last_date = df.index[-1]
-                future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=prediction_days)
+                    if not models:
+                        st.error("Please select at least one model.")
+                        return
 
-                # Plot predictions
-                st.subheader(f"Prediction for next {prediction_days} days")
-                fig, ax = plt.subplots(figsize=(12, 6))
+                    # Create enhanced hybrid model
+                    from models.enhanced_hybrid_model import EnhancedHybridModel
+                    hybrid_model = EnhancedHybridModel(
+                        models, 
+                        top_k=min(top_k, len(models)),
+                        selection_metric=selection_metric,
+                        ensemble_method=ensemble_method,
+                        validation_split=validation_split,
+                        adaptive_weights=adaptive_weights
+                    )
 
-                # Plot historical data
-                ax.plot(df.index[-100:], df['Close'][-100:], label='Historical Close Price')
+                    # Train hybrid model (which trains all base models)
+                    hybrid_model.fit(X_train, y_train)
 
-                # Plot future predictions
-                ax.plot(future_dates, future_predictions, label='Predicted Close Price', color='red')
+                    # Add model comparison visualization
+                    st.subheader("Model Performance Comparison")
+                    try:
+                        fig = hybrid_model.plot_model_comparison()
+                        st.pyplot(fig)
+                    except Exception as e:
+                        st.error(f"Error plotting model comparison: {str(e)}")
 
-                ax.set_title(f"{ticker} Stock Price Prediction")
-                ax.set_xlabel("Date")
-                ax.set_ylabel("Price (INR)")
-                ax.legend()
-                st.pyplot(fig)
+                    # Then continue with making predictions
+                    # Make predictions on test data
+                    test_predictions = hybrid_model.predict(X_test)
 
-                # Display prediction data
-                prediction_df = pd.DataFrame({
-                    'Date': future_dates,
-                    'Predicted Close Price': future_predictions.flatten()
-                })
-                prediction_df.set_index('Date', inplace=True)
-                st.write(prediction_df)
+                    # Show model performance comparison
+                    st.subheader("Model Performance Comparison")
+                    fig = hybrid_model.plot_model_comparison()
+                    st.pyplot(fig)
+
+                    # Make predictions on test data
+                    test_predictions = hybrid_model.predict(X_test)
+
+                    # Inverse transform
+                    dummy = np.zeros((len(test_predictions), processed_df.shape[1]))
+                    dummy[:, 0] = test_predictions.flatten()
+                    test_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+
+                    # If test_predictions is 1D, reshape it for inverse transform
+                    if len(test_predictions.shape) == 1:
+                        test_predictions = test_predictions.reshape(-1, 1)
+
+                    # Evaluate model performance on test data
+                    try:
+                        # Get the actual closing prices for the test period
+                        y_test_actual = df['Close'].values[-len(test_predictions_actual):]
+
+                        # Make sure the arrays are the same length
+                        min_len = min(len(y_test_actual), len(test_predictions_actual))
+                        y_test_actual = y_test_actual[-min_len:]
+                        test_predictions_actual = test_predictions_actual[-min_len:]
+
+                        # Calculate evaluation metrics
+                        metrics = evaluate_predictions(y_test_actual, test_predictions_actual)
+
+                        # Display metrics in the app
+                        st.subheader("Model Evaluation on Test Data")
+
+                        # Format the metrics for better readability
+                        formatted_metrics = {
+                            'MSE': f"{metrics['MSE']:.2f}",
+                            'RMSE': f"{metrics['RMSE']:.2f}",
+                            'MAE': f"{metrics['MAE']:.2f}",
+                            'R²': f"{metrics['R2']:.4f}",
+                            'MAPE': f"{metrics['MAPE']:.2f}%"
+                    }
+
+                        # Create a DataFrame for display
+                        metrics_df = pd.DataFrame({
+                        'Metric': list(formatted_metrics.keys()),
+                        'Value': list(formatted_metrics.values())
+                    })
+
+                        # Display as a table
+                        st.table(metrics_df)
+
+                        # Add interpretation
+                        if metrics['MAPE'] < 5:
+                            st.success("The model shows excellent accuracy with less than 5% average percentage error.")
+                        elif metrics['MAPE'] < 10:
+                            st.info("The model shows good accuracy with less than 10% average percentage error.")
+                        else:
+                            st.warning("The model shows moderate accuracy. Consider adjusting parameters or adding more training data.")
+
+                    except Exception as e:
+                        st.error(f"Error calculating evaluation metrics: {str(e)}")
+
+                    # If test_predictions is 1D, reshape it for inverse transform
+                    if len(test_predictions.shape) == 1:
+                        test_predictions = test_predictions.reshape(-1, 1)
+
+                    # Prepare for inverse transform
+                    # We need to create a dummy array with the same shape as the original data
+                    dummy = np.zeros((len(test_predictions), processed_df.shape[1]))
+                    dummy[:, 0] = test_predictions.flatten()  # Assuming first column is Close price
+
+                    # Inverse transform
+                    test_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+
+                    # Generate future predictions
+                    last_sequence = X_test[-1].reshape(1, X_test.shape[1], X_test.shape[2])
+                    future_predictions = []
+
+                    for _ in range(prediction_days):
+                        next_pred = hybrid_model.predict(last_sequence)
+                        future_predictions.append(next_pred[0])
+
+                        # Update sequence for next prediction
+                        # Create a new sequence by shifting and adding the new prediction
+                        new_seq = np.copy(last_sequence)
+                        new_seq[0, :-1, :] = new_seq[0, 1:, :]
+                        new_seq[0, -1, 0] = next_pred[0]  # Assuming prediction is for the first feature
+                        last_sequence = new_seq
+
+                    # Convert future predictions to actual values
+                    future_predictions = np.array(future_predictions).reshape(-1, 1)
+                    dummy = np.zeros((len(future_predictions), processed_df.shape[1]))
+                    dummy[:, 0] = future_predictions.flatten()
+                    future_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+
+                    # Create future dates
+                    last_date = df.index[-1]
+                    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=prediction_days)
+
+                    # Plot predictions
+                    st.subheader(f"Prediction for next {prediction_days} days")
+                    fig, ax = plt.subplots(figsize=(12, 6))
+
+                    # Plot historical data
+                    ax.plot(df.index[-100:], df['Close'][-100:], label='Historical Close Price')
+
+                    # Plot future predictions
+                    ax.plot(future_dates, future_predictions_actual, label='Predicted Close Price', color='red')
+
+                    ax.set_title(f"{ticker} Stock Price Prediction")
+                    ax.set_xlabel("Date")
+                    ax.set_ylabel("Price (INR)")
+                    ax.legend()
+                    st.pyplot(fig)
+
+                    # Display prediction data
+                    prediction_df = pd.DataFrame({
+                        'Date': future_dates,
+                        'Predicted Close Price': future_predictions_actual
+                    })
+                    prediction_df.set_index('Date', inplace=True)
+                    st.write(prediction_df)
+
+                    # Display model weights
+                    st.subheader("Selected Models and Weights")
+                    weights = hybrid_model.get_model_weights()
+                    weights_df = pd.DataFrame({
+                        'Model': list(weights.keys()),
+                        'Weight': list(weights.values())
+                    })
+
+                    # Create a bar chart of weights
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    ax.bar(weights_df['Model'], weights_df['Weight'])
+                    ax.set_title("Model Weights in Hybrid Prediction")
+                    ax.set_ylabel("Weight")
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    st.pyplot(fig)
+
+                except Exception as e:
+                    st.error(f"Error generating prediction: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
     else:
         st.error(f"No data available for {ticker}")
 
