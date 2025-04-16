@@ -64,42 +64,27 @@ def home_page():
         end_date = datetime.now().strftime('%Y-%m-%d')
         start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
-        st.write(f"Loading data for tickers: {tickers}")
         data = load_stock_data(tickers, start_date, end_date)
 
         # Display recent performance
         for ticker, df in data.items():
-            st.write(f"Processing ticker: {ticker}")
-
             if not df.empty:
-                st.write(f"DataFrame for {ticker} has {len(df)} rows")
+                # Calculate change safely
+                first_price = float(df['Close'].iloc[0])
+                last_price = float(df['Close'].iloc[-1])
+                change = ((last_price - first_price) / first_price) * 100
 
-                # Safe way to calculate change
-                try:
-                    first_price = float(df['Close'].iloc[0])
-                    last_price = float(df['Close'].iloc[-1])
-                    change = ((last_price - first_price) / first_price) * 100
+                # Set color based on change
+                color = "green" if change >= 0 else "red"
 
-                    # Now change is definitely a scalar value
-                    st.write(f"First price: {first_price}, Last price: {last_price}, Change: {change}")
-
-                    if change >= 0:
-                        color = "green"
-                    else:
-                        color = "red"
-
-                    st.markdown(f"**{ticker}**: {last_price:.2f} INR "
-                              f"<span style='color:{color}'>{change:.2f}%</span>", unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Error calculating change for {ticker}: {str(e)}")
-                    st.write(f"DataFrame head: {df.head().to_dict()}")
+                # Display with formatting
+                st.markdown(f"**{ticker}**: {last_price:.2f} INR "
+                          f"<span style='color:{color}'>{change:.2f}%</span>", unsafe_allow_html=True)
             else:
-                st.write(f"No data available for {ticker}")
+                st.info(f"No recent data available for {ticker}")
     except Exception as e:
-        st.error(f"Error in home_page: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
-        
+        st.error(f"Error loading market overview: {str(e)}")
+
 def company_analysis_page():
     st.title("Company Analysis")
 
