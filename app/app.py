@@ -125,7 +125,7 @@ def company_analysis_page():
         # Plot moving averages
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(processed_df.index, processed_df['Close'], label='Close Price')
-        
+
         # Only plot moving averages if they exist and have valid data
         if 'MA5' in processed_df.columns and not processed_df['MA5'].isna().all():
             ax.plot(processed_df.index, processed_df['MA5'], label='5-day MA')
@@ -133,33 +133,41 @@ def company_analysis_page():
             ax.plot(processed_df.index, processed_df['MA20'], label='20-day MA')
         if 'MA50' in processed_df.columns and not processed_df['MA50'].isna().all():
             ax.plot(processed_df.index, processed_df['MA50'], label='50-day MA')
-            
+
         ax.set_title(f"{ticker} Moving Averages")
         ax.set_xlabel("Date")
         ax.set_ylabel("Price (INR)")
         ax.legend()
         st.pyplot(fig)
 
-        # Volume chart - Fix the error here
+        # Volume chart - Fixed version
         st.subheader("Trading Volume")
         try:
-            # Make sure we have valid data for the bar chart
-            valid_dates = df.index[df['Volume'].notna() & (df['Volume'] > 0)]
-            valid_volumes = df.loc[valid_dates, 'Volume']
-            
-            if len(valid_dates) > 0:
+            # Use pandas built-in plotting which handles DatetimeIndex correctly
+            fig, ax = plt.subplots(figsize=(12, 4))
+            df['Volume'].plot(kind='bar', ax=ax)
+            ax.set_title(f"{ticker} Trading Volume")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Volume")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            st.pyplot(fig)
+        except Exception as e:
+            # Alternative approach if the first one fails
+            try:
                 fig, ax = plt.subplots(figsize=(12, 4))
-                ax.bar(valid_dates, valid_volumes)
+                # Convert dates to strings for the x-axis
+                ax.bar(df.index.astype(str), df['Volume'])
                 ax.set_title(f"{ticker} Trading Volume")
                 ax.set_xlabel("Date")
                 ax.set_ylabel("Volume")
+                plt.xticks(rotation=45)
+                plt.tight_layout()
                 st.pyplot(fig)
-            else:
-                st.info("No valid volume data available for this period.")
-        except Exception as e:
-            st.error(f"Error creating volume chart: {str(e)}")
-            st.write("Volume data preview:")
-            st.write(df['Volume'].head())
+            except Exception as e2:
+                st.error(f"Error creating volume chart: {str(e2)}")
+                st.write("Volume data preview:")
+                st.write(df['Volume'].head())
     else:
         st.error(f"No data available for {ticker}")
 
