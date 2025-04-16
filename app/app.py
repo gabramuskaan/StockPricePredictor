@@ -41,7 +41,7 @@ def main():
         comparison_page()
 
 def home_page():
-    st.title("Stock Market Predictor")
+    st.title("Stock Market Predictor - UPDATED VERSION")  # Changed title to be obviously different
     st.write("""
     ## Welcome to the Stock Market Predictor App
 
@@ -125,23 +125,41 @@ def company_analysis_page():
         # Plot moving averages
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(processed_df.index, processed_df['Close'], label='Close Price')
-        ax.plot(processed_df.index, processed_df['MA5'], label='5-day MA')
-        ax.plot(processed_df.index, processed_df['MA20'], label='20-day MA')
-        ax.plot(processed_df.index, processed_df['MA50'], label='50-day MA')
+        
+        # Only plot moving averages if they exist and have valid data
+        if 'MA5' in processed_df.columns and not processed_df['MA5'].isna().all():
+            ax.plot(processed_df.index, processed_df['MA5'], label='5-day MA')
+        if 'MA20' in processed_df.columns and not processed_df['MA20'].isna().all():
+            ax.plot(processed_df.index, processed_df['MA20'], label='20-day MA')
+        if 'MA50' in processed_df.columns and not processed_df['MA50'].isna().all():
+            ax.plot(processed_df.index, processed_df['MA50'], label='50-day MA')
+            
         ax.set_title(f"{ticker} Moving Averages")
         ax.set_xlabel("Date")
         ax.set_ylabel("Price (INR)")
         ax.legend()
         st.pyplot(fig)
 
-        # Volume chart
+        # Volume chart - Fix the error here
         st.subheader("Trading Volume")
-        fig, ax = plt.subplots(figsize=(12, 4))
-        ax.bar(df.index, df['Volume'])
-        ax.set_title(f"{ticker} Trading Volume")
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Volume")
-        st.pyplot(fig)
+        try:
+            # Make sure we have valid data for the bar chart
+            valid_dates = df.index[df['Volume'].notna() & (df['Volume'] > 0)]
+            valid_volumes = df.loc[valid_dates, 'Volume']
+            
+            if len(valid_dates) > 0:
+                fig, ax = plt.subplots(figsize=(12, 4))
+                ax.bar(valid_dates, valid_volumes)
+                ax.set_title(f"{ticker} Trading Volume")
+                ax.set_xlabel("Date")
+                ax.set_ylabel("Volume")
+                st.pyplot(fig)
+            else:
+                st.info("No valid volume data available for this period.")
+        except Exception as e:
+            st.error(f"Error creating volume chart: {str(e)}")
+            st.write("Volume data preview:")
+            st.write(df['Volume'].head())
     else:
         st.error(f"No data available for {ticker}")
 
