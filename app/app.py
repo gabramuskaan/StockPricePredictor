@@ -415,7 +415,9 @@ def prediction_page():
 
                     # Prepare for inverse transform
                     # We need to create a dummy array with the same shape as the original data
-                    dummy = np.zeros((len(test_predictions), processed_df.shape[1]))
+                    # Create a proper dummy array with the same number of features as used during scaling
+                    n_features = scaler.min_.shape[0]  # This will be 9 based on your error
+                    dummy = np.zeros((len(test_predictions), n_features))
                     dummy[:, 0] = test_predictions.flatten()  # Assuming first column is Close price
 
                     # Inverse transform
@@ -439,24 +441,30 @@ def prediction_page():
                     # Convert future predictions to actual values
                     future_predictions = np.array(future_predictions).reshape(-1, 1)
 
+                    # Create a proper dummy array with the correct number of features
+                    n_features = scaler.min_.shape[0]  # This is 9 based on your debug output
+                    st.write(f"Creating dummy array with shape: ({len(test_predictions)}, {n_features})")
+
+                    # Create a proper dummy array with the same number of features as used during scaling
+                    n_features = scaler.min_.shape[0]  # This will be 9 based on your error
+                    dummy = np.zeros((len(test_predictions), n_features))
+                    dummy[:, 0] = test_predictions.flatten()  # Assuming first column is Close price
+
+                    # Inverse transform
                     try:
-                        # Create a proper dummy array with the same number of features as used during scaling
-                        n_features = scaler.min_.shape[0]
-                        dummy = np.zeros((len(future_predictions), n_features))
-                        dummy[:, 0] = future_predictions.flatten()
-                        future_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+                        test_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
                     except ValueError as e:
-                        st.error(f"Error during future predictions inverse transform: {e}")
+                        st.error(f"Error during inverse transform: {e}")
                         st.write("Attempting alternative approach...")
-
-                    # Alternative approach: create a new scaler just for the Close price
-                    from sklearn.preprocessing import MinMaxScaler
-                    close_prices = df['Close'].values.reshape(-1, 1)
-                    close_scaler = MinMaxScaler()
-                    close_scaler.fit(close_prices)
-
-                    # Use this scaler for the inverse transform
-                    future_predictions_actual = close_scaler.inverse_transform(future_predictions)[:, 0]
+    
+                        # Alternative approach: create a new scaler just for the Close price
+                        from sklearn.preprocessing import MinMaxScaler
+                        close_prices = df['Close'].values.reshape(-1, 1)
+                        close_scaler = MinMaxScaler()
+                        close_scaler.fit(close_prices)
+    
+                        # Use this scaler for the inverse transform
+                        test_predictions_actual = close_scaler.inverse_transform(test_predictions)[:, 0]
 
                     # Create future dates
                     last_date = df.index[-1]
