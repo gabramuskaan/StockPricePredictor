@@ -335,14 +335,34 @@ def prediction_page():
                     # Make predictions on test data
                     test_predictions = hybrid_model.predict(X_test)
 
-                    # Inverse transform
-                    dummy = np.zeros((len(test_predictions), processed_df.shape[1]))
-                    dummy[:, 0] = test_predictions.flatten()
-                    test_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
-
                     # If test_predictions is 1D, reshape it for inverse transform
                     if len(test_predictions.shape) == 1:
                         test_predictions = test_predictions.reshape(-1, 1)
+
+                    # Debug information
+                    st.write(f"Test predictions shape: {test_predictions.shape}")
+                    st.write(f"Scaler min_ shape: {scaler.min_.shape}")
+                    st.write(f"Scaler scale_ shape: {scaler.scale_.shape}")
+
+                    # Create a proper dummy array with the same number of features as used during scaling
+                    n_features = scaler.min_.shape[0]
+                    dummy = np.zeros((len(test_predictions), n_features))
+                    dummy[:, 0] = test_predictions.flatten()  # Assuming first column is Close price
+
+                    # Inverse transform
+                    try:
+                        test_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+                    except ValueError as e:
+                        st.error(f"Error during inverse transform: {e}")
+                        st.write("Attempting alternative approach...")
+
+                        # Alternative approach: create a new scaler just for the Close price
+                        from sklearn.preprocessing import MinMaxScaler
+                        close_scaler = MinMaxScaler()
+                        close_scaler.fit(processed_df['Close'].values.reshape(-1, 1))
+
+                        # Use this scaler for the inverse transform
+                        test_predictions_actual = close_scaler.inverse_transform(test_predictions)[:, 0]
 
                     # Evaluate model performance on test data
                     try:
@@ -418,9 +438,25 @@ def prediction_page():
 
                     # Convert future predictions to actual values
                     future_predictions = np.array(future_predictions).reshape(-1, 1)
-                    dummy = np.zeros((len(future_predictions), processed_df.shape[1]))
-                    dummy[:, 0] = future_predictions.flatten()
-                    future_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+
+                    try:
+                        # Create a proper dummy array with the same number of features as used during scaling
+                        n_features = scaler.min_.shape[0]
+                        dummy = np.zeros((len(future_predictions), n_features))
+                        dummy[:, 0] = future_predictions.flatten()
+                        future_predictions_actual = scaler.inverse_transform(dummy)[:, 0]
+                    except ValueError as e:
+                        st.error(f"Error during future predictions inverse transform: {e}")
+                        st.write("Attempting alternative approach...")
+
+                    # Alternative approach: create a new scaler just for the Close price
+                    from sklearn.preprocessing import MinMaxScaler
+                    close_prices = df['Close'].values.reshape(-1, 1)
+                    close_scaler = MinMaxScaler()
+                    close_scaler.fit(close_prices)
+
+                    # Use this scaler for the inverse transform
+                    future_predictions_actual = close_scaler.inverse_transform(future_predictions)[:, 0]
 
                     # Create future dates
                     last_date = df.index[-1]

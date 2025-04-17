@@ -54,25 +54,14 @@ def preprocess_data(df):
 def train_test_split(df, train_size=0.8, sequence_length=60):
     """
     Split the data into training and testing sets and prepare sequences
-
-    Parameters:
-    -----------
-    df : pandas.DataFrame
-        Preprocessed DataFrame with features
-    train_size : float, default=0.8
-        Proportion of data to use for training
-    sequence_length : int, default=60
-        Number of time steps to use for each sequence
-
-    Returns:
-    --------
-    X_train, X_test, y_train, y_test, scaler
-        Training and testing data, and the scaler used for normalization
     """
     # Select features
     features = ['Close', 'MA5', 'MA20', 'RSI', 'MACD', 'Signal_Line',
                 'Upper_Band', 'Lower_Band', 'ROC']
-    data = df[features].values
+
+    # Make sure we only use features that exist in the dataframe
+    available_features = [f for f in features if f in df.columns]
+    data = df[available_features].values
 
     # Normalize the data
     scaler = MinMaxScaler(feature_range=(0, 1))
