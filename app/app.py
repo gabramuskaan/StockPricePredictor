@@ -450,8 +450,6 @@ def prediction_page():
                     try:
                         future_predictions_actual = scaler.inverse_transform(future_dummy)[:, 0]
                     except ValueError as e:
-                        st.error(f"Error during future predictions inverse transform: {e}")
-                        st.write("Attempting alternative approach for future predictions...")
 
                         # Alternative approach: create a new scaler just for the Close price
                         from sklearn.preprocessing import MinMaxScaler
@@ -461,10 +459,6 @@ def prediction_page():
 
                         # Use this scaler for the inverse transform
                         future_predictions_actual = close_scaler.inverse_transform(future_predictions)[:, 0]
-
-                    # Debug information
-                    st.write(f"Future predictions shape: {future_predictions.shape}")
-                    st.write(f"Future predictions actual length: {len(future_predictions_actual) if 'future_predictions_actual' in locals() else 'Not defined'}")
 
                     # Create future dates
                     last_date = df.index[-1]
