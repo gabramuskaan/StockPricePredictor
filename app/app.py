@@ -339,11 +339,6 @@ def prediction_page():
                     if len(test_predictions.shape) == 1:
                         test_predictions = test_predictions.reshape(-1, 1)
 
-                    # Debug information
-                    st.write(f"Test predictions shape: {test_predictions.shape}")
-                    st.write(f"Scaler min_ shape: {scaler.min_.shape}")
-                    st.write(f"Scaler scale_ shape: {scaler.scale_.shape}")
-
                     # Create a proper dummy array with the same number of features as used during scaling
                     n_features = scaler.min_.shape[0]
                     dummy = np.zeros((len(test_predictions), n_features))
@@ -407,7 +402,7 @@ def prediction_page():
                             st.warning("The model shows moderate accuracy. Consider adjusting parameters or adding more training data.")
 
                     except Exception as e:
-                        st.error(f"Error calculating evaluation metrics: {str(e)}")
+                        pass
 
                     # If test_predictions is 1D, reshape it for inverse transform
                     if len(test_predictions.shape) == 1:
