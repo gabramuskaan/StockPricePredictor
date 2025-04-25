@@ -66,7 +66,7 @@ def evaluate_predictions(y_true, y_pred):
     }
 
 def home_page():
-    st.title("Stock Market Predictor - UPDATED VERSION")  # Changed title to be obviously different
+    st.title("Stock Market Predictor")  # Changed title to be obviously different
     st.write("""
     ## Welcome to the Stock Market Predictor App
 
@@ -212,50 +212,50 @@ def prediction_page():
     # Prediction days
     prediction_days = st.slider("Number of Days to Predict", 7, 90, 30)
 
-    # Model selection
-    st.subheader("Model Selection")
+    # # Model selection
+    # st.subheader("Model Selection")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        models_to_use = st.multiselect(
-            "Select Models to Include",
-            ["LSTM", "Random Forest", "SVR", "KNN", "GRU"],
-            default=["LSTM", "Random Forest", "SVR", "GRU"]
-        )
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     models_to_use = st.multiselect(
+    #         "Select Models to Include",
+    #         ["LSTM", "Random Forest", "SVR", "KNN", "GRU"],
+    #         default=["LSTM", "Random Forest", "SVR", "GRU"]
+    #     )
     
-    with col2:
-        top_k = st.slider("Number of Top Models to Use in Hybrid", 1, 5, 2, 
-                         help="The hybrid model will select this many top-performing models")
+    # with col2:
+    #     top_k = st.slider("Number of Top Models to Use in Hybrid", 1, 5, 2, 
+    #                      help="The hybrid model will select this many top-performing models")
     
-    # Advanced options
-    with st.expander("Advanced Options"):
-        col1, col2 = st.columns(2)
+    # # Advanced options
+    # with st.expander("Advanced Options"):
+    #     col1, col2 = st.columns(2)
         
-        with col1:
-            selection_metric = st.selectbox(
-                "Model Selection Metric",
-                ["rmse", "mae", "r2"],
-                help="Metric used to select the best models"
-            )
+    #     with col1:
+    #         selection_metric = st.selectbox(
+    #             "Model Selection Metric",
+    #             ["rmse", "mae", "r2"],
+    #             help="Metric used to select the best models"
+    #         )
             
-            ensemble_method = st.selectbox(
-                "Ensemble Method",
-                ["weighted", "simple"],
-                help="Method to combine model predictions"
-            )
+    #         ensemble_method = st.selectbox(
+    #             "Ensemble Method",
+    #             ["weighted", "simple"],
+    #             help="Method to combine model predictions"
+    #         )
         
-        with col2:
-            validation_split = st.slider(
-                "Validation Split",
-                0.1, 0.3, 0.2,
-                help="Fraction of training data to use for model selection"
-            )
+    #     with col2:
+    #         validation_split = st.slider(
+    #             "Validation Split",
+    #             0.1, 0.3, 0.2,
+    #             help="Fraction of training data to use for model selection"
+    #         )
             
-            adaptive_weights = st.checkbox(
-                "Adaptive Weights",
-                True,
-                help="Dynamically adjust model weights based on recent performance"
-            )
+    #         adaptive_weights = st.checkbox(
+    #             "Adaptive Weights",
+    #             True,
+    #             help="Dynamically adjust model weights based on recent performance"
+    #         )
 
     # Load data
     data = load_stock_data([ticker], start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
@@ -275,53 +275,36 @@ def prediction_page():
                     X_train, X_test, y_train, y_test, scaler = train_test_split(processed_df, train_size=0.8)
 
                     # Initialize models based on user selection
-                    models = {}
+                    # Always use all models, top 2, weighted ensemble, 0.2 validation split, no adaptive weights
 
-                    if "LSTM" in models_to_use:
-                        from models.base_models.lstm import LSTMModel
-                        models["LSTM"] = LSTMModel(epochs=50)
+                    models = {
+                        "LSTM": LSTMModel(epochs=50),
+                        "Random Forest": __import__('models.base_models.random_forest', fromlist=['RandomForestModel']).RandomForestModel(n_estimators=100),
+                        "SVR": __import__('models.base_models.svr', fromlist=['SVRModel']).SVRModel(),
+                        "KNN": __import__('models.base_models.knn', fromlist=['KNNModel']).KNNModel(n_neighbors=5),
+                        "GRU": __import__('models.base_models.gru', fromlist=['GRUModel']).GRUModel(epochs=50)
+                    }
 
-                    if "Random Forest" in models_to_use:
-                        from models.base_models.random_forest import RandomForestModel
-                        models["Random Forest"] = RandomForestModel(n_estimators=100)
-
-                    if "SVR" in models_to_use:
-                        from models.base_models.svr import SVRModel
-                        models["SVR"] = SVRModel()
-
-                    if "KNN" in models_to_use:
-                        from models.base_models.knn import KNNModel
-                        models["KNN"] = KNNModel(n_neighbors=5)
-
-                    if "GRU" in models_to_use:
-                        from models.base_models.gru import GRUModel
-                        models["GRU"] = GRUModel(epochs=50)
-
-                    if not models:
-                        st.error("Please select at least one model.")
-                        return
-
-                    # Create enhanced hybrid model
                     from models.enhanced_hybrid_model import EnhancedHybridModel
                     hybrid_model = EnhancedHybridModel(
-                        models, 
-                        top_k=min(top_k, len(models)),
-                        selection_metric=selection_metric,
-                        ensemble_method=ensemble_method,
-                        validation_split=validation_split,
-                        adaptive_weights=adaptive_weights
+                        models,
+                        top_k=2,
+                        selection_metric="rmse",
+                        ensemble_method="weighted",
+                        validation_split=0.2,
+                        adaptive_weights=False
                     )
 
                     # Train hybrid model (which trains all base models)
                     hybrid_model.fit(X_train, y_train)
 
-                    # Add model comparison visualization
-                    st.subheader("Model Performance Comparison")
-                    try:
-                        fig = hybrid_model.plot_model_comparison()
-                        st.pyplot(fig)
-                    except Exception as e:
-                        st.error(f"Error plotting model comparison: {str(e)}")
+                    # # Add model comparison visualization
+                    # st.subheader("Model Performance Comparison")
+                    # try:
+                    #     fig = hybrid_model.plot_model_comparison()
+                    #     st.pyplot(fig)
+                    # except Exception as e:
+                    #     st.error(f"Error plotting model comparison: {str(e)}")
 
                     # Then continue with making predictions
                     # Make predictions on test data
@@ -552,13 +535,14 @@ def comparison_page():
 
     # Performance metrics
     st.subheader("Performance Metrics")
+    
     metrics = []
 
     for ticker in tickers:
         if ticker in data and not data[ticker].empty:
             df = data[ticker]
-            start_price = df['Close'].iloc[0]
-            end_price = df['Close'].iloc[-1]
+            start_price = float(df['Close'].iloc[0])
+            end_price = float(df['Close'].iloc[-1])
             change_pct = ((end_price - start_price) / start_price) * 100
 
             # Calculate volatility
@@ -566,15 +550,15 @@ def comparison_page():
             volatility = daily_returns.std() * (252 ** 0.5) * 100  # Annualized volatility
 
             metrics.append({
-                'Ticker': ticker,
-                'Start Price': start_price,
-                'End Price': end_price,
-                'Change (%)': change_pct,
-                'Volatility (%)': volatility
+                'Company': ticker,
+                'Start Price': round(start_price, 2),
+                'End Price': round(end_price, 2),
+                'Change (%)': round(change_pct, 2),
+                'Volatility (%)': round(volatility, 2)
             })
 
-    metrics_df = pd.DataFrame(metrics)
-    st.write(metrics_df)
+    metrics_df = pd.DataFrame(metrics, columns=['Company', 'Start Price', 'End Price', 'Change (%)', 'Volatility (%)'])
+    st.dataframe(metrics_df)
 
 if __name__ == "__main__":
     main()

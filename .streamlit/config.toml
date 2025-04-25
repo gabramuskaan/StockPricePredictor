@@ -1,10 +1,6 @@
 [theme]
-primaryColor = "#FF4B4B"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#262730"
+primaryColor = "#1976D2"                # Deep blue for accents/buttons
+backgroundColor = "#FAFAFA"              # Very light gray for main background
+secondaryBackgroundColor = "#E3F2FD"     # Soft blue for cards/sidebars
+textColor = "#212121"                    # Dark gray for text
 font = "sans serif"
-
-[server]
-enableCORS = false
-enableXsrfProtection = false
